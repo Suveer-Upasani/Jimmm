@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe WebRTC Stream</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .video-container h3 {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+        
+        video {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #d35400;
+            transform: translateY(-2px);
+        }
+        
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .mode-btn {
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mode-btn.active {
+            border-color: #3498db;
+            background: #3498db;
+            color: white;
+        }
+        
+        .mode-btn:hover {
+            border-color: #3498db;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .instructions {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .instructions h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .instructions li {
+            padding: 5px 0;
+            color: #34495e;
+        }
+        
+        .instructions li:before {
+            content: "•";
+            color: #3498db;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 MediaPipe WebRTC Stream</h1>
+            <p>Real-time body pose detection with MediaPipe & WebRTC</p>
+        </div>
+        
+        <div class="content">
+            <div class="video-section">
+                <div class="video-container">
+                    <h3>📹 Local Camera</h3>
+                    <video id="localVideo" autoplay muted playsinline></video>
+                </div>
+                
+                <div class="video-container">
+                    <h3>🔄 Processed Stream</h3>
+                    <video id="remoteVideo" autoplay playsinline></video>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <h3>🎮 Stream Controls</h3>
+                    <div class="buttons">
+                        <button class="btn-primary" onclick="startStream()">▶️ Start Stream</button>
+                        <button class="btn-danger" onclick="stopStream()">⏹️ Stop Stream</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🔧 Processing Controls</h3>
+                    <div class="buttons">
+                        <button class="btn-success" onclick="startProcessing()">🚀 Start Processing</button>
+                        <button class="btn-warning" onclick="stopProcessing()">⏸️ Stop Processing</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎨 View Mode</h3>
+                    <div class="mode-buttons">
+                        <div class="mode-btn active" onclick="setViewMode('normal')" id="modeNormal">
+                            🌟 Normal View
+                        </div>
+                        <div class="mode-btn" onclick="setViewMode('black_background')" id="modeBlack">
+                            ⚫ Mesh on Black
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="status disconnected" id="connectionStatus">
+                    🔴 Disconnected from server
+                </div>
+                
+                <div class="instructions">
+                    <h4>📋 How to use:</h4>
+                    <ul>
+                        <li>Click "Start Stream" to begin camera access</li>
+                        <li>Use "Start Processing" to enable MediaPipe detection</li>
+                        <li>Toggle between Normal and Black Background views</li>
+                        <li>Green border indicates active processing</li>
+                        <li>Stop processing to see original video feed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let localStream = null;
+        let peerConnection = null;
+        let socket = null;
+        let connectionId = null;
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
+        };
+
+        // Initialize Socket.io connection
+        function initializeSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const socketUrl = `${protocol}//${window.location.host}`;
+            
+            socket = io(socketUrl);
+            
+            socket.on('connect', () => {
+                updateStatus('connected', '🟢 Connected to server');
+            });
+            
+            socket.on('disconnect', () => {
+                updateStatus('disconnected', '🔴 Disconnected from server');
+            });
+            
+            socket.on('connected', (data) => {
+                console.log('Server connected:', data);
+            });
+            
+            socket.on('answer', async (data) => {
+                try {
+                    await peerConnection.setRemoteDescription(
+                        new RTCSessionDescription(data)
+                    );
+                    connectionId = data.connection_id;
+                    updateStatus('connected', '🟢 Streaming active with MediaPipe');
+                } catch (error) {
+                    console.error('Error setting remote description:', error);
+                }
+            });
+            
+            socket.on('error', (data) => {
+                console.error('Server error:', data.error);
+                updateStatus('disconnected', '🔴 Error: ' + data.error);
+            });
+        }
+
+        // Update connection status
+        function updateStatus(status, message) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.textContent = message;
+            statusElement.className = 'status ' + status;
+        }
+
+        // Start camera stream
+        async function startStream() {
+            try {
+                updateStatus('connecting', '🟡 Starting camera...');
+                
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+                
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                // Initialize WebRTC connection
+                await initializeWebRTC();
+                updateStatus('connected', '🟢 Camera active - Ready to process');
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                updateStatus('disconnected', '🔴 Camera access failed: ' + error.message);
+            }
+        }
+
+        // Initialize WebRTC connection
+        async function initializeWebRTC() {
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Add local stream tracks
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+            
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+            
+            // Create and send offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            socket.emit('offer', {
+                sdp: offer.sdp,
+                type: offer.type
+            });
+        }
+
+        // Stop stream
+        function stopStream() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            updateStatus('disconnected', '🔴 Stream stopped');
+        }
+
+        // Start MediaPipe processing
+        function startProcessing() {
+            if (connectionId) {
+                socket.emit('start_processing', { connection_id: connectionId });
+                updateStatus('connected', '🟢 MediaPipe processing active');
+            } else {
+                alert('Please start the stream first');
+            }
+        }
+
+        // Stop MediaPipe processing
+        function stopProcessing() {
+            if (connectionId) {
+                socket.emit('stop_processing', { connection_id: connectionId });
+                updateStatus('connected', '🟡 Processing stopped - Original stream');
+            } else {
+                alert('Please start the stream first');
+            }
+        }
+
+        // Set view mode
+        function setViewMode(mode) {
+            if (connectionId) {
+                socket.emit('set_view_mode', {
+                    connection_id: connectionId,
+                    mode: mode
+                });
+                
+                // Update UI
+                document.getElementById('modeNormal').classList.toggle('active', mode === 'normal');
+                document.getElementById('modeBlack').classList.toggle('active', mode === 'black_background');
+                
+                const modeText = mode === 'normal' ? 'Normal View' : 'Mesh on Black';
+                updateStatus('connected', `🟢 ${modeText} active`);
+            } else {
+                alert('Please start the stream first');
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initializeSocket();
+            updateStatus('disconnected', '🔴 Click "Start Stream" to begin');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopStream();
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
