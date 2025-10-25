@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies including distutils
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
@@ -20,8 +20,7 @@ RUN apt-get update && apt-get install -y \
     libvpx-dev \
     libsrtp2-dev \
     pkg-config \
-    # Add distutils
-    python3-distutils \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency list
@@ -30,12 +29,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy all application files
 COPY . .
-
-# Create templates directory and copy HTML
-RUN mkdir -p templates
-COPY templates/index.html templates/
 
 EXPOSE 5005
 CMD ["gunicorn", "-b", "0.0.0.0:5005", "-k", "eventlet", "app:app"]
