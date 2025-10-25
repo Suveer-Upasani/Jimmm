@@ -8,4 +8,4 @@ numpy==1.24.3
 pillow==10.0.1
 gunicorn==21.2.0
 eventlet==0.33.3
-av==9.2.0
+av==8.1.0
